@@ -86,16 +86,28 @@ def read_arg_list(name: str, custom_lang: bool):
         print(f"Unable to open argument file '{name}' due to: {err}");
     return pages;
 
+def perform_call(path:str):
+    source:object = None;
+    source = requests.get(path, headers={'user-agent': 'fetcher'}); 
+    return source;
+
 def wiki_call(page_name: str): 
     api_endpoint: str = 'https://'+page_name["lang"]+'.wikipedia.org/w/api.php';
     api_msg:str = '?action=parse&page=' + page_name["name"] + '&prop=text&formatversion=2&format=json';
     path = api_endpoint + api_msg;
-    source: object;
     page_dump:str = "";
     try:
-        message = f"Fetching {page_name["name"]}".ljust(64);
-        print(f"{message}{time.asctime():>}");
-        source = requests.get(path, headers={'user-agent': 'fetcher'});
+        calls_count:int = 0; # max limit for a call to fail
+        while calls_count >= 0 and calls_count < 10:
+            message = f"Fetching {page_name["name"]}".ljust(64);
+            print(f"{message}{time.asctime():>}, attempt {calls_count}");
+            source: object = perform_call(path);
+            if source.status_code == 200:
+                calls_count = -1;
+            else:
+                calls_count += 1;
+        if calls_count == 10:
+            raise Exception(f"Exceeding maximum error rate! Check the URL for {page_name["name"]}");
         json_dump = json.loads(source.text);
         page_dump = json_dump['parse']['text'];
     except Exception as ex:
